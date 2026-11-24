@@ -7,169 +7,77 @@ const projectsData = require('./data/projectsData');
 const skillsData = require('./data/skillsData');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+    const time = new Date().toISOString();
+    console.log(`[${time}] ${req.method} ${req.originalUrl}`);
+    next();
+});
+
 app.get('/', (req, res) => {
-  res.json({
-    message: "კეთილი იყოს თქვენი მობრძანება პორტფოლიოს Express.js API-ზე!",
-    status: "active",
-    author: userData.fullName,
-    endpoints: {
-      user: {
-        method: "GET",
-        path: "/api/user",
-        description: "აბრუნებს ინფორმაციას მომხმარებლის/დეველოპერის შესახებ"
-      },
-      projects: {
-        method: "GET",
-        path: "/api/projects",
-        description: "აბრუნებს პროექტების მასივს (მხარდაჭერილია ?category= და ?search= ფილტრები)"
-      },
-      skills: {
-        method: "GET",
-        path: "/api/skills",
-        description: "აბრუნებს ტექნიკური და პიროვნული უნარების ჩამონათვალს"
-      },
-      services: {
-        method: "GET",
-        path: "/api/services",
-        description: "აბრუნებს შეთავაზებული სერვისების სიას"
-      }
-    }
-  });
-});
-
-app.get('/api/user', (req, res) => {
-  try {
-    res.status(200).json({
-      success: true,
-      data: userData
+    res.json({
+        message: "Express.js Backend API წარმატებით მუშაობს!",
+        endpoints: {
+            method1_user: "/user (ან /api/user) - ინფორმაცია მომხმარებლის შესახებ",
+            method2_projects: "/projects (ან /api/projects) - პროექტების მასივი",
+            method3_skills: "/skills (ან /api/skills) - უნარების ჩამონათვალი"
+        }
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "მონაცემების მიღება ვერ მოხერხდა",
-      error: error.message
-    });
-  }
 });
 
-app.get('/user', (req, res) => {
-  res.redirect('/api/user');
+app.get(['/user', '/api/user'], (req, res) => {
+    res.json(userData);
 });
 
-app.get('/api/projects', (req, res) => {
-  try {
+app.get(['/projects', '/api/projects'], (req, res) => {
+    const { category, search } = req.query;
     let result = [...projectsData];
-    const { category, search, featured } = req.query;
 
     if (category) {
-      result = result.filter(p => p.category.toLowerCase() === category.toLowerCase());
-    }
-
-    if (featured !== undefined) {
-      const isFeatured = featured === 'true';
-      result = result.filter(p => p.featured === isFeatured);
+        result = result.filter(p => p.category.toLowerCase() === category.toLowerCase());
     }
 
     if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(p =>
-        p.title.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        p.technologies.some(t => t.toLowerCase().includes(q))
-      );
+        const q = search.toLowerCase();
+        result = result.filter(p =>
+            p.title.toLowerCase().includes(q) ||
+            p.description.toLowerCase().includes(q)
+        );
     }
 
-    res.status(200).json({
-      success: true,
-      count: result.length,
-      data: result
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "პროექტების წამოღება ვერ მოხერხდა",
-      error: error.message
-    });
-  }
+    res.json(result);
 });
 
-app.get('/projects', (req, res) => {
-  res.redirect('/api/projects');
+app.get(['/projects/:id', '/api/projects/:id'], (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const project = projectsData.find(p => p.id === id);
+
+    if (!project) {
+        return res.status(404).json({ message: "პროექტი ვერ მოიძებნა" });
+    }
+
+    res.json(project);
 });
 
-app.get('/api/projects/:id', (req, res) => {
-  const projectId = parseInt(req.params.id, 10);
-  const project = projectsData.find(p => p.id === projectId);
-
-  if (!project) {
-    return res.status(404).json({
-      success: false,
-      message: `პროექტი ID-ით ${req.params.id} ვერ მოიძებნა`
-    });
-  }
-
-  res.status(200).json({
-    success: true,
-    data: project
-  });
-});
-
-app.get('/api/skills', (req, res) => {
-  try {
-    res.status(200).json({
-      success: true,
-      data: {
-        technicalSkills: skillsData.technicalSkills,
-        softSkills: skillsData.softSkills
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "უნარების წამოღება ვერ მოხერხდა",
-      error: error.message
-    });
-  }
-});
-
-app.get('/skills', (req, res) => {
-  res.redirect('/api/skills');
-});
-
-app.get('/api/services', (req, res) => {
-  try {
-    res.status(200).json({
-      success: true,
-      count: skillsData.services.length,
-      data: skillsData.services
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "სერვისების წამოღება ვერ მოხერხდა",
-      error: error.message
-    });
-  }
+app.get(['/skills', '/api/skills'], (req, res) => {
+    res.json(skillsData);
 });
 
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `მოთხოვნილი მისამართი (${req.originalUrl}) ვერ მოიძებნა`,
-    availableEndpoints: ["/", "/api/user", "/api/projects", "/api/skills", "/api/services"]
-  });
+    res.status(404).json({
+        error: "404 Not Found",
+        message: `მისამართი ${req.originalUrl} ვერ მოიძებნა`,
+        availableRoutes: ["/", "/user", "/projects", "/skills"]
+    });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Express სერვერი წარმატებით გაეშვა მისამართზე: http://localhost:${PORT}`);
-  console.log(`📡 GET ენდფოინთები:`);
-  console.log(`   - მომხმარებელი: http://localhost:${PORT}/api/user`);
-  console.log(`   - პროექტები:    http://localhost:${PORT}/api/projects`);
-  console.log(`   - უნარები:       http://localhost:${PORT}/api/skills`);
-  console.log(`   - სერვისები:     http://localhost:${PORT}/api/services`);
+app.listen(port, () => {
+    console.log(`Express სერვერი გაეშვა პორტზე ${port}`);
+    console.log(`- GET /user       -> http://localhost:${port}/user`);
+    console.log(`- GET /projects   -> http://localhost:${port}/projects`);
+    console.log(`- GET /skills     -> http://localhost:${port}/skills`);
 });
